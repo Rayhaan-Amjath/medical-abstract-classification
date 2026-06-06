@@ -7,7 +7,7 @@ import accelerate
 import numpy as np
 
 df = pd.read_csv(
-    "medical_tc_train.csv"
+    "data/Medical-Abstracts-TC-Corpus-main/medical_tc_train.csv"
     )
 
 df["label"] = df["condition_label"] - 1 #hugging face models prefer to start from 0, this just offsets it
