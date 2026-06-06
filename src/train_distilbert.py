@@ -7,7 +7,7 @@ import accelerate
 import numpy as np
 
 df = pd.read_csv(
-    'data/Medical-Abstracts-TC-Corpus-main/medical_tc_train.csv'
+    "medical_tc_train.csv"
     )
 
 df["label"] = df["condition_label"] - 1 #hugging face models prefer to start from 0, this just offsets it
@@ -86,7 +86,10 @@ training_args = TrainingArguments(
     learning_rate = 2e-5,
     weight_decay=0.01,
     logging_steps=100,
-    load_best_model_at_end=True
+    load_best_model_at_end=True, 
+    num_train_epochs=3,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8
 )
 
 #Trainer 
@@ -97,4 +100,12 @@ trainer = Trainer(
     eval_dataset = tokenized_test, 
     compute_metrics = compute_metrics
 )
+
+trainer.train()
+
+model.save_pretrained("./models/distilbert_medical")
+tokenizer.save_pretrained("./models/distilbert_medical")
+
+results = trainer.evaluate()
+print(results)
 
