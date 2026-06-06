@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 from datasets import Dataset
 from transformers import AutoTokenizer, DistilBertForSequenceClassification, Trainer, TrainingArguments
 import evaluate 
+import accelerate
 import numpy as np
 
 df = pd.read_csv(
@@ -62,13 +63,38 @@ model = DistilBertForSequenceClassification.from_pretrained(
     num_labels=5
 ) #num labels = 5 bc we have 5 categories 
 
-lengths = []
+#metric function - want to measure if our accuracy can beat 55% from logistic regression model 
+accuracy_metric = evaluate.load("accuracy")
 
-for text in df["medical_abstract"]:
-    lengths.append(
-        len(tokenizer.tokenize(text))
+def compute_metrics(eval_pred): 
+    logits, labels = eval_pred 
+    predictions = np.argmax(
+        logits, 
+        axis=-1
+    )
+    return accuracy_metric.compute(
+        predictions=predictions, 
+        references=labels
     )
 
-print("Average length:", sum(lengths)/len(lengths))
-print("Max length:", max(lengths))
+#Training arguments 
+training_args = TrainingArguments(
+    output_dir = "./results",
+    eval_strategy="epoch",
+    save_strategy="epoch",
+    
+    learning_rate = 2e-5,
+    weight_decay=0.01,
+    logging_steps=100,
+    load_best_model_at_end=True
+)
+
+#Trainer 
+trainer = Trainer(
+    model = model, 
+    args = training_args, 
+    train_dataset = tokenized_train, 
+    eval_dataset = tokenized_test, 
+    compute_metrics = compute_metrics
+)
 
