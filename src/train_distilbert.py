@@ -55,8 +55,15 @@ tokenized_test = tokenized_test.remove_columns(
 )
 
 #convert data into pytorhc tensors 
-tokenized_train.set_format("torch") 
-tokenized_test.set_format("torch")
+tokenized_train.set_format(
+    type="torch",
+    columns=["input_ids", "attention_mask", "label"]
+)
+
+tokenized_test.set_format(
+    type="torch",
+    columns=["input_ids", "attention_mask", "label"]
+)
 
 model = DistilBertForSequenceClassification.from_pretrained(
     "distilbert-base-uncased",
@@ -108,4 +115,3 @@ tokenizer.save_pretrained("./models/distilbert_medical")
 
 results = trainer.evaluate()
 print(results)
-
