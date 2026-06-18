@@ -6,121 +6,130 @@ import evaluate
 import accelerate
 import numpy as np
 
-df = pd.read_csv(
+
+def main(): 
+    df = pd.read_csv(
     "data/Medical-Abstracts-TC-Corpus-main/medical_tc_train.csv"
     )
 
-df["label"] = df["condition_label"] - 1 #hugging face models prefer to start from 0, this just offsets it
+    df["label"] = df["condition_label"] - 1 #hugging face models prefer to start from 0, this just offsets it
 
-train_df, test_df = train_test_split(
-    df,
-    test_size=0.2,
-    random_state=42,
-    stratify=df["label"]
-)
-
-# Convert to HF datasets
-train_dataset = Dataset.from_pandas(train_df)
-test_dataset = Dataset.from_pandas(test_df)
-
-tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
-
-def tokenize_function(examples):
-    return tokenizer(
-        examples["medical_abstract"],
-        truncation=True,
-        padding="max_length",
-        max_length=384 #updated because average length of abstracts was around 277
+    train_df, test_df = train_test_split(
+        df,
+        test_size=0.2,
+        random_state=42,
+        stratify=df["label"]
     )
-#MAX od 256 tokens so it has a fixed context window, truncation is on, meaning if an abstract is longer 
-#we cut if off, and padding is on so if the abstract is too short, it adds padding 
 
-#tokenize dataset
-tokenized_train = train_dataset.map(
-    tokenize_function,
-    batched=True
-)
+    # Convert to HF datasets
+    train_dataset = Dataset.from_pandas(train_df)
+    test_dataset = Dataset.from_pandas(test_df)
 
-tokenized_test = test_dataset.map(
-    tokenize_function,
-    batched=True
-)
+    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
 
-tokenized_train = tokenized_train.remove_columns(
+    def tokenize_function(examples):
+        return tokenizer(
+            examples["medical_abstract"],
+            truncation=True,
+            padding="max_length",
+            max_length=384 #updated because average length of abstracts was around 277
+        )
+    #MAX od 256 tokens so it has a fixed context window, truncation is on, meaning if an abstract is longer 
+    #we cut if off, and padding is on so if the abstract is too short, it adds padding 
+
+    #tokenize dataset
+    tokenized_train = train_dataset.map(
+        tokenize_function,
+        batched=True
+    )
+
+    tokenized_test = test_dataset.map(
+        tokenize_function,
+        batched=True
+    )
+
+    tokenized_train = tokenized_train.remove_columns(
+        ["condition_label", "medical_abstract", "__index_level_0__"]
+    ) #model does not care about these columns
+
+    tokenized_test = tokenized_test.remove_columns(
     ["condition_label", "medical_abstract", "__index_level_0__"]
-) #model does not care about these columns
-
-tokenized_test = tokenized_test.remove_columns(
-    ["condition_label", "medical_abstract", "__index_level_0__"]
-)
-
-#convert data into pytorhc tensors 
-print(tokenized_train.column_names)
-print(tokenized_test.column_names)
-tokenized_train.set_format(
-    type="torch",
-    columns=["input_ids", "attention_mask", "label"]
-)
-
-tokenized_test.set_format(
-    type="torch",
-    columns=["input_ids", "attention_mask", "label"]
-)
-
-model = DistilBertForSequenceClassification.from_pretrained(
-    "distilbert-base-uncased",
-    num_labels=5
-) #num labels = 5 bc we have 5 categories 
-
-#metric function - want to measure if our accuracy can beat 55% from logistic regression model 
-accuracy_metric = evaluate.load("accuracy")
-
-def compute_metrics(eval_pred): 
-    logits, labels = eval_pred 
-    predictions = np.argmax(
-        logits, 
-        axis=-1
-    )
-    return accuracy_metric.compute(
-        predictions=predictions, 
-        references=labels
     )
 
-#Training arguments 
-training_args = TrainingArguments(
-    output_dir = "./results",
-    eval_strategy="epoch",
-    save_strategy="epoch",
+    #convert data into pytorhc tensors 
+    print(tokenized_train.column_names)
+    print(tokenized_test.column_names)
+    tokenized_train.set_format(
+        type="torch",
+        columns=["input_ids", "attention_mask", "label"]
+    )
+
+    tokenized_test.set_format(
+        type="torch",
+        columns=["input_ids", "attention_mask", "label"]
+    )
+
+    model = DistilBertForSequenceClassification.from_pretrained(
+        "distilbert-base-uncased",
+        num_labels=5
+    ) #num labels = 5 bc we have 5 categories 
+
+    #metric function - want to measure if our accuracy can beat 55% from logistic regression model 
+    accuracy_metric = evaluate.load("accuracy")
+
+    def compute_metrics(eval_pred): 
+        logits, labels = eval_pred 
+        predictions = np.argmax(
+            logits, 
+            axis=-1
+        )
+        return accuracy_metric.compute(
+            predictions=predictions, 
+            references=labels
+        )
+
+    #   Training arguments 
+    training_args = TrainingArguments(
+        output_dir = "./results",
+        eval_strategy="epoch",
+        save_strategy="epoch",
     
-    learning_rate = 2e-5,
-    weight_decay=0.01,
-    logging_steps=100,
-    load_best_model_at_end=True, 
-    num_train_epochs=3,
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8
-)
+        learning_rate = 2e-5,
+        weight_decay=0.01,
+        logging_steps=100,
+        load_best_model_at_end=True, 
+        num_train_epochs=3,
+        per_device_train_batch_size=8,
+        per_device_eval_batch_size=8
+    )
 
-#Trainer 
-trainer = Trainer(
-    model = model, 
-    args = training_args, 
-    train_dataset = tokenized_train, 
-    eval_dataset = tokenized_test, 
-    compute_metrics = compute_metrics
-)
+    #Trainer 
+    trainer = Trainer(
+        model = model, 
+        args = training_args, 
+        train_dataset = tokenized_train, 
+        eval_dataset = tokenized_test, 
+        compute_metrics = compute_metrics
+    )
 
-trainer.train()
+    trainer.train()
 
-SAVE_PATH = "/content/drive/MyDrive/distilbert_medical"
+    SAVE_PATH = "/content/drive/MyDrive/distilbert_medical"
 
-model.save_pretrained(SAVE_PATH)
-tokenizer.save_pretrained(SAVE_PATH)
+    model.save_pretrained(SAVE_PATH)
+    tokenizer.save_pretrained(SAVE_PATH)
 
-results = trainer.evaluate()
-print(results)
+    results = trainer.evaluate()
+    print(results)
 
-import json
+    import json
 
-with open("/content/drive/MyDrive/distilbert_medical/results.json", "w") as f:
-    json.dump(results, f)
+    with open("results/metrics.json", "w") as f:
+        json.dump(results, f, indent=4)
+
+    import json
+
+    with open("/content/drive/MyDrive/distilbert_medical/results.json", "w") as f:
+        json.dump(results, f)
+
+if __name__ == "__main__": main()

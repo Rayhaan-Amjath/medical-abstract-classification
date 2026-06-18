@@ -1,36 +1,36 @@
-from transformers import DistilBertForSequenceClassification
-from transformers import DistilBertTokenizer
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+from predict import y_pred, y_true
 
-from transformers import Trainer
-import numpy as np
-from sklearn.metrics import classification_report
-from train_distilbert import tokenized_test
+cm = confusion_matrix(y_true, y_pred)
 
-MODEL_PATH = "models/distilbert_medical"
+plt.figure(figsize=(8,6))
+plt.imshow(cm)
+plt.colorbar()
 
-model = DistilBertForSequenceClassification.from_pretrained(MODEL_PATH)
-tokenizer = DistilBertTokenizer.from_pretrained(MODEL_PATH)
-
-
-trainer = Trainer(
-    model=model
+plt.xticks(
+    range(5),
+    [
+        "Neo",
+        "Dig",
+        "Nerv",
+        "Card",
+        "Gen"
+    ],
+    rotation=45
 )
 
-predictions = trainer.predict(tokenized_test)
-
-y_pred = np.argmax(predictions.predictions, axis=1)
-y_true = predictions.label_ids
-
-print(
-    classification_report(
-        y_true,
-        y_pred,
-        target_names=[
-            "Neoplasms",
-            "Digestive System Diseases",
-            "Nervous System Diseases",
-            "Cardiovascular Diseases",
-            "General Pathological Conditions"
-        ]
-    )
+plt.yticks(
+    range(5),
+    [
+        "Neo",
+        "Dig",
+        "Nerv",
+        "Card",
+        "Gen"
+    ]
 )
+
+plt.tight_layout()
+
+plt.savefig("results/confusion_matrix.png")
