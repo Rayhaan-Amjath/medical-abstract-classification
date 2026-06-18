@@ -1,16 +1,14 @@
 from transformers import DistilBertForSequenceClassification
 from transformers import DistilBertTokenizer
+
 from transformers import Trainer
 import numpy as np
 from sklearn.metrics import classification_report
 
-model = DistilBertForSequenceClassification.from_pretrained(
-    "./models/distilbert_medical"
-)
+MODEL_PATH = "models/distilbert_medical"
 
-tokenizer = DistilBertTokenizer.from_pretrained(
-    "./models/distilbert_medical"
-)
+model = DistilBertForSequenceClassification.from_pretrained(MODEL_PATH)
+tokenizer = DistilBertTokenizer.from_pretrained(MODEL_PATH)
 
 
 trainer = Trainer(
