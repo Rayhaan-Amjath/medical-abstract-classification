@@ -55,6 +55,8 @@ tokenized_test = tokenized_test.remove_columns(
 )
 
 #convert data into pytorhc tensors 
+print(tokenized_train.column_names)
+print(tokenized_test.column_names)
 tokenized_train.set_format(
     type="torch",
     columns=["input_ids", "attention_mask", "label"]
@@ -110,8 +112,15 @@ trainer = Trainer(
 
 trainer.train()
 
-model.save_pretrained("./models/distilbert_medical")
-tokenizer.save_pretrained("./models/distilbert_medical")
+SAVE_PATH = "/content/drive/MyDrive/distilbert_medical"
+
+model.save_pretrained(SAVE_PATH)
+tokenizer.save_pretrained(SAVE_PATH)
 
 results = trainer.evaluate()
 print(results)
+
+import json
+
+with open("/content/drive/MyDrive/distilbert_medical/results.json", "w") as f:
+    json.dump(results, f)
